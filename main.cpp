@@ -9,7 +9,8 @@
 #include <vector>
 #include <iostream>
 #include <algorithm>
-#include <time.h> 
+#include <time.h>
+#include "mvector.h"
 #endif
 
 #ifndef FOR_WINDOWS
@@ -21,83 +22,42 @@
 #include <vector>
 #include <iostream>
 #include <algorithm>
-#include <time.h> 
+#include <time.h>
+#include "mvector.h"
 #endif
 
-double change = -10;
+GLdouble rotationMatrix[16] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 };
+double timeDelta = 0.00001;
+double  indent = -10;
 double scale = 1;
+
+int animationSpeed = 1;
 int windowWidth = 400;
 int windowHeight = 400;
 
-double currentPointX = 0;
-double previousPointX = 0;
-double currentPointY = 0;
-double previousPointY = 0;
+int currentPointX = 0;
+int previousPointX = 0;
+int currentPointY = 0;
+int previousPointY = 0;
 
 int counter = 0;
+int iter = 0;
 
-int speed = 1;
 double G = 6.67428e-2;
 
-class mvector {
-    public:
-        double x, y, z;
+mvector rA(0.1, -0.1, 0.0);
+mvector rB(1.2, -2.2, 0.0);
+mvector rC(1.0, -2.5, -1.0);
+mvector vA(0.02, -0.0, 0.0);
+mvector vB(0.0, 0.02, 0.0);
+mvector vC(-0.01, -0.0, 0.02);
 
-        mvector(double _x, double _y, double _z) {
-            x = _x;
-            y = _y;
-            z = _z;
-        }
+double traceA[2048][3];
+double traceB[2048][3];
+double traceC[2048][3];
 
-        mvector operator +(const mvector& a) {
-            mvector result(a.x+this->x, a.y+this->y, a.z+this->z);
-            return result;
-        }
-
-        mvector operator -(const mvector& a) {
-            mvector result(this->x-a.x, this->y-a.y, this->z-a.z);
-            return result;
-        }
-
-        mvector operator *(const double& d) {
-            mvector result(this->x*d, this->y*d, this->z*d);
-            return result;
-        }
-
-        mvector operator /(const double& d) {
-            mvector result(this->x/d, this->y/d, this->z/d);
-            return result;
-        }
-
-        mvector operator *(const mvector& a) {
-            double x = this->y*a.z - this->z*a.y;
-            double y = this->x*a.z - this->z*a.x;
-            double z = this->x*a.y - this->y*a.x;
-            mvector result(x, y, z);
-            return result;
-        }
-
-        mvector operator ,(const mvector& a) {
-            mvector result(this->x*a.x, this->y*a.y, this->z*a.z);
-            return result;
-        }
-
-        double abs() {
-            return sqrt(x*x + y*y + z*z);
-        }
-
-        void normalize() {
-            double a = 1/abs();
-            //printf("asd %f\n", a);
-            this->x *= a;
-            this->y *= a;
-            this->z *= a;
-        }
-
-        void out() {
-            printf("x\t%f\ty\t%f\tz\t%f\n", this->x, this->y, this->z);
-        }
-};
+mvector * stars[2048];
+mvector * colors[2048];
 
 void multMatrices(GLdouble m1[16], GLdouble m2[16]) {
     GLdouble temp[] = { 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0 };
@@ -108,71 +68,38 @@ void multMatrices(GLdouble m1[16], GLdouble m2[16]) {
     }
     for (int i = 0; i < 16; i++) {
         m1[i] = temp[i];
-        printf("%f ", temp[i]);
     }
-    printf("\n");
 }
 
-mvector axis(0.0, 0.0, 0.0);
-double angle = 0;
-double timeSpan = 0.00001;
-GLdouble rotate[16] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 };
-
-mvector rA(0.1, -0.1, 0.0);
-mvector rB(1.2, -2.2, 0.0);
-mvector rC(1.0, -2.5, -1.0);
-mvector vA(0.02, -0.0, 0.0);
-mvector vB(0.0, 0.02, 0.0);
-mvector vC(-0.01, -0.0, 0.02);
-
-
-double trackA[2048][3];
-double trackB[2048][3];
-double trackC[2048][3];
-int iter = 0;
-
-mvector * stars[2048];
-mvector * colors[2048];
-
 void physics() {
-    //printf("A\n");
     mvector aA = (rC-rA)*G/(pow((rC-rA).abs(),3)) + (rB-rA)*G/(pow((rB-rA).abs(), 3));
-    //aA.out();
     mvector aB = (rC-rB)*G/(pow((rC-rB).abs(),3)) + (rA-rB)*G/(pow((rA-rB).abs(), 3));
-    //aB.out();
     mvector aC = (rA-rC)*G/(pow((rA-rC).abs(),3)) + (rB-rC)*G/(pow((rB-rC).abs(), 3));
-    //aC.out();
 
-    //printf("V\n");
-    vA = vA + aA*timeSpan;
-    //vA.out();
-    vB = vB + aB*timeSpan;
-    //vB.out();
-    vC = vC + aC*timeSpan;
-    //vC.out();
+    vA = vA + aA*timeDelta;
+    vB = vB + aB*timeDelta;
+    vC = vC + aC*timeDelta;
 
-    //printf("R\n");
-    rA = rA + vA*timeSpan;
-    //rA.out();
-    rB = rB + vB*timeSpan;
-    //rB.out();
-    rC = rC + vC*timeSpan;
-    //rC.out();
+    rA = rA + vA*timeDelta;
+    rB = rB + vB*timeDelta;
+    rC = rC + vC*timeDelta;
+}
 
-    trackA[iter][0] = rA.x;
-    trackA[iter][1] = rA.y;
-    trackA[iter][2] = rA.z;
+void updateTrace() {
+    traceA[iter][0] = rA.x;
+    traceA[iter][1] = rA.y;
+    traceA[iter][2] = rA.z;
 
-    trackB[iter][0] = rB.x;
-    trackB[iter][1] = rB.y;
-    trackB[iter][2] = rB.z;
+    traceB[iter][0] = rB.x;
+    traceB[iter][1] = rB.y;
+    traceB[iter][2] = rB.z;
 
-    trackC[iter][0] = rC.x;
-    trackC[iter][1] = rC.y;
-    trackC[iter][2] = rC.z;
+    traceC[iter][0] = rC.x;
+    traceC[iter][1] = rC.y;
+    traceC[iter][2] = rC.z;
 
     counter += 1;
-    if (counter > 1.0/timeSpan/100) {
+    if (counter > 1.0/timeDelta/100) {
         counter = 0;
         iter += 1;
     }
@@ -235,35 +162,35 @@ void drawAxes() {
     glEnable(GL_LIGHTING);
 }
 
-void drawTrack() {
+void drawTrace() {
     glDisable(GL_LIGHTING);
     glBegin(GL_LINE_STRIP);
     glColor3f(0,1,0);
     for (int i = iter-1; i >= 0; i--){
-        glVertex3d(trackA[i][0],trackA[i][1], trackA[i][2]);
+        glVertex3d(traceA[i][0],traceA[i][1], traceA[i][2]);
     }
     for (int i = 2048-1; i > iter; i--){
-        glVertex3d(trackA[i][0],trackA[i][1], trackA[i][2]);
+        glVertex3d(traceA[i][0],traceA[i][1], traceA[i][2]);
     }
     glEnd();
 
     glBegin(GL_LINE_STRIP);
     glColor3f(1,1,0);
     for (int i = iter-1; i >= 0; i--){
-        glVertex3d(trackB[i][0],trackB[i][1], trackB[i][2]);
+        glVertex3d(traceB[i][0],traceB[i][1], traceB[i][2]);
     }
     for (int i = 2048-1; i > iter; i--){
-        glVertex3d(trackB[i][0],trackB[i][1], trackB[i][2]);
+        glVertex3d(traceB[i][0],traceB[i][1], traceB[i][2]);
     }
     glEnd();
 
     glBegin(GL_LINE_STRIP);
     glColor3f(1,0,1);
     for (int i = iter-1; i >= 0; i--){
-        glVertex3d(trackC[i][0],trackC[i][1], trackC[i][2]);
+        glVertex3d(traceC[i][0],traceC[i][1], traceC[i][2]);
     }
     for (int i = 2048-1; i > iter; i--){
-        glVertex3d(trackC[i][0],trackC[i][1], trackC[i][2]);
+        glVertex3d(traceC[i][0],traceC[i][1], traceC[i][2]);
     }
     glEnd();
     glEnable(GL_LIGHTING);
@@ -275,56 +202,47 @@ void draw()
     glViewport(0, 0, windowWidth, windowHeight);
     glMatrixMode(GL_MODELVIEW);
 
-
     glLoadIdentity();              
-    glTranslatef(0, 0, change);  
+    glTranslatef(0, 0,  indent);  
     glScalef(scale,scale,scale);
-	//glRotatef(angle, axis.x, axis.y, axis.z);
-	glMultMatrixd(rotate);
+	glMultMatrixd(rotationMatrix);
     glTranslatef(rA.x, rA.y, rA.z);
     glColor3f(0,1,0);
 	glutSolidSphere(0.05, 50, 50);
 
     glLoadIdentity();              
-    glTranslatef(0, 0, change);  
+    glTranslatef(0, 0,  indent);  
     glScalef(scale,scale,scale);
-	//glRotatef(angle, axis.x, axis.y, axis.z);
-	glMultMatrixd(rotate);
+	glMultMatrixd(rotationMatrix);
     glTranslatef(rB.x, rB.y, rB.z);  
     glColor3f(1,1,0);
 	glutSolidSphere(0.05, 50, 50);
 
     glLoadIdentity();              
-    glTranslatef(0, 0, change);  
+    glTranslatef(0, 0,  indent);  
     glScalef(scale,scale,scale);
-	//glRotatef(angle, axis.x, axis.y, axis.z);
-	glMultMatrixd(rotate);
+	glMultMatrixd(rotationMatrix);
     glTranslatef(rC.x, rC.y, rC.z);  
     glColor3f(1,0,1);
 	glutSolidSphere(0.05, 50, 50);
 
 	glLoadIdentity();              
-    glTranslatef(0, 0, change);  
+    glTranslatef(0, 0,  indent);  
     glScalef(scale,scale,scale);
-	//glRotatef(angle, axis.x, axis.y, axis.z);
-	glMultMatrixd(rotate);
+	glMultMatrixd(rotationMatrix);
     drawAxes();
-    drawTrack();
-
-    glLoadIdentity();
-    glTranslatef(0, 0, change);  
-    glScalef(scale,scale,scale);
-	//glRotatef(angle, axis.x, axis.y, axis.z);
-	glMultMatrixd(rotate);
+    drawTrace();
     drawStars();
+
     glFlush();
     glutSwapBuffers();
 }
 
 void update(int value)
 {
-        for (int i = 0; i < speed; i++) {
+        for (int i = 0; i < animationSpeed; i++) {
             physics();
+            updateTrace();
         }
         glutPostRedisplay();
         glutTimerFunc(0.1, update, 0);
@@ -381,15 +299,15 @@ void initRendering()
         }
 
         for (int i = 0; i < 2048; i++) {
-            trackA[i][0] = rA.x;
-            trackA[i][1] = rA.y;
-            trackA[i][2] = rA.z;
-            trackB[i][0] = rB.x;
-            trackB[i][1] = rB.y;
-            trackB[i][2] = rB.z;
-            trackC[i][0] = rC.x;
-            trackC[i][1] = rC.y;
-            trackC[i][2] = rC.z;
+            traceA[i][0] = rA.x;
+            traceA[i][1] = rA.y;
+            traceA[i][2] = rA.z;
+            traceB[i][0] = rB.x;
+            traceB[i][1] = rB.y;
+            traceB[i][2] = rB.z;
+            traceC[i][0] = rC.x;
+            traceC[i][1] = rC.y;
+            traceC[i][2] = rC.z;
         }
 }
 
@@ -410,19 +328,13 @@ void handleResize(int width, int height)
         gluPerspective(60.0f, aspect, 0.1f, 100.0f);
 }
 
-/*
-
-Now we create event handlers, for example, to handle mouse clicks, interaction with keyboard etc.
-
-*/
-
 void mouse(int button, int state, int x, int y)
 {
     if (button == 3) {
-        scale *= 1.2;
+        scale *= 1.1;
     }
     else if (button == 4) {
-        scale /= 1.2;
+        scale /= 1.1;
     }
     else {
         previousPointX = currentPointX;
@@ -434,10 +346,10 @@ void mouse(int button, int state, int x, int y)
 
 void keyboard(unsigned char key, int x, int y) {
     if (key == 'w') {
-        speed += 1;
+        animationSpeed += 1;
     }
     if (key == 's') {
-        speed -= 1;
+        animationSpeed -= 1;
     }
 }
 
@@ -447,9 +359,7 @@ void special(int key, int x, int y) {
 
 
 void mouseMoving(int x, int y) {
-    axis.x = 0.0;
-    axis.y = 0.0;
-    axis.z = 1.0;
+    mvector rotationAxis(0.0, 0.0, 1.0);
 
     previousPointX = currentPointX;
     previousPointY = currentPointY;
@@ -463,25 +373,25 @@ void mouseMoving(int x, int y) {
     double mult = -1;
     mvector v((currentPointX-previousPointX)*mult, (currentPointY-previousPointY)*mult, 0.0);
     mvector rad(0, 0, 1);
-    axis = rad*v;
-    axis.normalize();
-    angle = -(v.abs())/(10*2*3.1415);
+    rotationAxis = rad*v;
+    rotationAxis.normalize();
+    double angle = -(v.abs())/(10*2*3.1415);
 
 
-    axis.out();
+    rotationAxis.out();
     printf("Angle : %f\n", angle);
     GLdouble temp[] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 };
-    temp[0] = (axis.x*axis.x)*(1-cos(angle))+cos(angle);
-    temp[1] = (axis.x*axis.y)*(1-cos(angle))-axis.z*sin(angle);
-    temp[2] = (axis.x*axis.z)*(1-cos(angle))+axis.y*sin(angle);
+    temp[0] = (rotationAxis.x*rotationAxis.x)*(1-cos(angle))+cos(angle);
+    temp[1] = (rotationAxis.x*rotationAxis.y)*(1-cos(angle))-rotationAxis.z*sin(angle);
+    temp[2] = (rotationAxis.x*rotationAxis.z)*(1-cos(angle))+rotationAxis.y*sin(angle);
 
-    temp[4] = (axis.x*axis.y)*(1-cos(angle))+axis.z*sin(angle);
-    temp[5] = (axis.y*axis.y)*(1-cos(angle))+cos(angle);
-    temp[6] = (axis.y*axis.z)*(1-cos(angle))-axis.x*sin(angle);
+    temp[4] = (rotationAxis.x*rotationAxis.y)*(1-cos(angle))+rotationAxis.z*sin(angle);
+    temp[5] = (rotationAxis.y*rotationAxis.y)*(1-cos(angle))+cos(angle);
+    temp[6] = (rotationAxis.y*rotationAxis.z)*(1-cos(angle))-rotationAxis.x*sin(angle);
 
-    temp[8] = (axis.x*axis.z)*(1-cos(angle))-axis.y*sin(angle);
-    temp[9] = (axis.y*axis.z)*(1-cos(angle))+axis.x*sin(angle);
-    temp[10] = (axis.z*axis.z)*(1-cos(angle))+cos(angle);
+    temp[8] = (rotationAxis.x*rotationAxis.z)*(1-cos(angle))-rotationAxis.y*sin(angle);
+    temp[9] = (rotationAxis.y*rotationAxis.z)*(1-cos(angle))+rotationAxis.x*sin(angle);
+    temp[10] = (rotationAxis.z*rotationAxis.z)*(1-cos(angle))+cos(angle);
 
     for (int i = 0; i < 16; i+=4) {
         for (int k = 0; k < 4; k++) {
@@ -491,12 +401,11 @@ void mouseMoving(int x, int y) {
     }
     printf("\n");
 
-    multMatrices(rotate, temp);
+    multMatrices(rotationMatrix, temp);
 
     for (int i = 0; i < 16; i+=4) {
         for (int k = 0; k < 4; k++) {
-            printf("%f ", rotate[i+k]);
-            //rotate[i+k] = temp[i + k];
+            printf("%f ", rotationMatrix[i+k]);
         }
         printf("\n");
     }
